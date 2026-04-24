@@ -1,0 +1,35 @@
+@page "/property-list"
+@model WelcomeMat.Pages.PropertyListModel
+@{
+    ViewData["Title"] = "Properties";
+}
+
+<div class="property-list">
+    <h2>Select a Property</h2>
+    <div class="property-cards">
+        @foreach (var p in Model.Properties)
+        {
+            <div class="property-card">
+                <a href="/property/@p.Id" class="property-card-image">
+                    <img src="/images/@(p.Id)/thumb.jpg" alt="@p.Name" loading="lazy"
+                         class="property-card-thumb" data-fallback-src="/images/placeholder.jpg" />
+                </a>
+                <div class="property-card-content">
+                    <a href="/property/@p.Id"><h3>@p.Name</h3></a>
+                    @if (!string.IsNullOrEmpty(p.Address))
+                    {
+                        <p class="property-address">@p.Address</p>
+                    }
+                    <div class="property-card-actions">
+                        <a href="/calendar/@p.Id" class="btn">Make Reservation</a>
+                        <a href="/property/@p.Id" class="btn btn-secondary">View Property</a>
+                        @if (Model.IsAdmin)
+                        {
+                            <a href="/admin/properties/@p.Id/edit" class="btn btn-secondary">Edit</a>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>

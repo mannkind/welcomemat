@@ -1,0 +1,59 @@
+@page
+@model WelcomeMat.Pages.LoginModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login - WelcomeMat</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/app.js" asp-append-version="true"></script>
+</head>
+<body>
+    <div class="login-container">
+        <h1>WelcomeMat</h1>
+        <p>Family &amp; Friends Reservations</p>
+        @{
+            var returnUrl = ViewData["ReturnUrl"] as string;
+            var returnUrlParam = returnUrl is not null ? "&returnUrl=" + Uri.EscapeDataString(returnUrl) : "";
+            var notAllowed = Model.Error == "not_allowed";
+        }
+        @if (Model.Error is not null)
+        {
+            <p class="error-message">
+                @if (notAllowed)
+                {
+                    @if (Model.RejectedEmail is not null)
+                    {
+                        <text>@Model.RejectedEmail is not on the access list.</text>
+                    }
+                    else
+                    {
+                        <text>Your email is not on the access list.</text>
+                    }
+                }
+                else
+                {
+                    <text>Authentication failed. Please try again.</text>
+                }
+            </p>
+        }
+        @if (notAllowed)
+        {
+            @* After a rejection, only the account chooser is offered -- a plain retry just replays it. *@
+            <p class="login-help">
+                If that isn't the account you meant to use, pick a different one. Otherwise ask
+                whoever invited you to add that address.
+            </p>
+            <a href="/auth/google/login?switchAccount=true@(returnUrlParam)" class="btn btn-google">Choose a different Google account</a>
+        }
+        else
+        {
+            <a href="/auth/google/login@(returnUrl is not null ? "?returnUrl=" + Uri.EscapeDataString(returnUrl) : "")" class="btn btn-google">Sign in with Google</a>
+        }
+    </div>
+</body>
+</html>
