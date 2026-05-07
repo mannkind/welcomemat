@@ -1,0 +1,65 @@
+@page "/admin/properties"
+@model WelcomeMat.Pages.Admin.PropertiesModel
+@{
+    ViewData["Title"] = "Manage Properties";
+}
+
+<div x-data="{ addOpen: false, error: '' }">
+    <div class="admin-header">
+        <h2>Properties</h2>
+        <button type="button" class="btn" x-on:click="error = ''; $refs.addModal.showModal()">New Property</button>
+    </div>
+
+    @if (Model.Properties.Count == 0)
+    {
+        <p class="admin-empty">No properties yet. Add your first one to get started.</p>
+    }
+    else
+    {
+        <div id="property-list" class="admin-list">
+            @foreach (var p in Model.Properties)
+            {
+                <div class="admin-row">
+                    <div class="admin-row-main">
+                        <div class="admin-row-title">@p.Name</div>
+                        <div class="admin-row-meta">
+                            @(string.IsNullOrEmpty(p.Address) ? "No address" : p.Address)
+                            &nbsp;·&nbsp;
+                            @if (p.IsActive)
+                            {
+                                <span class="badge badge-active">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-inactive">Inactive</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="admin-row-actions">
+                        <a href="/admin/properties/@p.Id/edit" class="btn btn-secondary btn-sm">Edit</a>
+                        <form method="post" asp-page-handler="Delete" asp-route-id="@p.Id"
+                              x-on:submit.prevent="confirm('Delete @p.Name? This cannot be undone if reservations reference it.') && adminRowSubmit($event.target)">
+                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <dialog x-ref="addModal" class="modal">
+        <form method="post" asp-page-handler="Add"
+              x-on:submit.prevent="adminSubmit($event.target).then(e => error = e)">
+            <h3>Add Property</h3>
+            <p x-show="error" x-text="error" class="modal-error"></p>
+            <div class="form-group">
+                <label for="property-name">Property name</label>
+                <input type="text" id="property-name" name="name" placeholder="Property name" required />
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" x-on:click="$refs.addModal.close()">Cancel</button>
+                <button type="submit" class="btn">Add Property</button>
+            </div>
+        </form>
+    </dialog>
+</div>

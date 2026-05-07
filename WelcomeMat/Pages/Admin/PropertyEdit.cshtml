@@ -1,0 +1,194 @@
+@page "/admin/properties/{id:guid}/edit"
+@model WelcomeMat.Pages.Admin.PropertyEditModel
+@{
+    var prop = Model.Property!;
+}
+
+
+<div class="admin-header">
+    <h2>Edit Property: @prop.Name</h2>
+    <a href="/admin/properties" class="btn btn-secondary btn-sm">&larr; Properties</a>
+</div>
+
+<div x-data="{
+    tab: ['details','photos'].includes(window.location.hash.slice(1))
+         ? window.location.hash.slice(1)
+         : 'details',
+    setTab(name) {
+        this.tab = name;
+        history.replaceState(null, '', '#' + name);
+    }
+}" x-cloak>
+    <nav class="tab-nav">
+        <button type="button" :class="{ active: tab === 'details' }" @@click="setTab('details')">Details</button>
+        <button type="button" :class="{ active: tab === 'photos' }" @@click="setTab('photos')">Photos</button>
+    </nav>
+
+    <div x-show="tab === 'details'" class="tab-panel">
+        <form method="post" asp-page-handler="Update" asp-route-id="@prop.Id">
+            <div class="property-edit-layout">
+                <div>
+                    <div class="form-group">
+                        <label for="property-name">Property Name</label>
+                        <input type="text" id="property-name" name="name" value="@prop.Name" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="property-address">Address</label>
+                        <input type="text" id="property-address" name="address" value="@prop.Address" />
+                        <p class="form-info">Geocoded via <a href="https://nominatim.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap (Nominatim)</a> to place the map marker.</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="property-wifi-network">WiFi Network</label>
+                        <input type="text" id="property-wifi-network" name="wifiNetwork" value="@prop.WifiNetwork" />
+                    </div>
+                    <div class="form-group">
+                        <label for="property-wifi-password">WiFi Password</label>
+                        <input type="text" id="property-wifi-password" name="wifiPassword" value="@prop.WifiPassword" />
+                    </div>
+                    <div class="form-group">
+                        <label for="property-door-code">Door Code</label>
+                        <input type="text" id="property-door-code" name="doorCode" value="@prop.DoorCode" />
+                    </div>
+                    <div class="form-group">
+                        <label for="property-time-zone">Time Zone</label>
+                        <input type="text" id="property-time-zone" name="timeZone" value="@prop.TimeZone" placeholder="America/Los_Angeles" required />
+                        <p class="form-info">IANA time zone id (e.g. America/Los_Angeles). Used for check-in/check-out and booking-window boundaries.</p>
+                    </div>
+                    <div class="form-group">
+                        <label class="toggle-label" for="isActive">Active</label>
+                        <label class="toggle">
+                            <input type="checkbox" id="isActive" name="isActive" value="true" @(prop.IsActive ? "checked" : "") />
+                            <span class="toggle-track"><span class="toggle-knob"></span></span>
+                        </label>
+                    </div>
+                    <h3>Booking Rules</h3>
+                    <p class="form-info">Leave blank to inherit the site-wide default from Admin &gt; Settings.</p>
+                    <div class="form-group">
+                        <label for="property-max-consecutive-nights">Max consecutive nights</label>
+                        <input type="number" id="property-max-consecutive-nights" name="maxConsecutiveNights" min="1"
+                               value="@prop.MaxConsecutiveNights" placeholder="Default: @Model.GlobalMaxConsecutiveNights" />
+                    </div>
+                    <div class="form-group">
+                        <label for="property-min-advance-notice-days">Min advance notice (days)</label>
+                        <input type="number" id="property-min-advance-notice-days" name="minAdvanceNoticeDays" min="0"
+                               value="@prop.MinAdvanceNoticeDays" placeholder="Default: @Model.GlobalMinAdvanceNoticeDays" />
+                    </div>
+                    <div class="form-group">
+                        <label for="property-max-advance-booking-days">Max advance booking (days)</label>
+                        <input type="number" id="property-max-advance-booking-days" name="maxAdvanceBookingDays" min="1"
+                               value="@prop.MaxAdvanceBookingDays" placeholder="Default: @Model.GlobalMaxAdvanceBookingDays" />
+                    </div>
+                    <div class="form-group">
+                        <label for="property-access-window-days">Access window (days before check-in)</label>
+                        <input type="number" id="property-access-window-days" name="accessWindowDays" min="0"
+                               value="@prop.AccessWindowDays" placeholder="Default: @Model.GlobalAccessWindowDays" />
+                        <p class="form-info">Door code and Wi-Fi become visible to a guest this many days before check-in.</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="property-check-in-time">Check-in time</label>
+                        <input type="time" id="property-check-in-time" name="checkInTime"
+                               value="@(prop.CheckInTime is { } ci ? WelcomeMat.Services.StayTimesService.Format(ci) : "")"
+                               placeholder="Default: @WelcomeMat.Services.StayTimesService.Format(Model.GlobalStayTimes.CheckIn)" />
+                    </div>
+                    <div class="form-group">
+                        <label for="property-check-out-time">Check-out time</label>
+                        <input type="time" id="property-check-out-time" name="checkOutTime"
+                               value="@(prop.CheckOutTime is { } co ? WelcomeMat.Services.StayTimesService.Format(co) : "")"
+                               placeholder="Default: @WelcomeMat.Services.StayTimesService.Format(Model.GlobalStayTimes.CheckOut)" />
+                        <p class="form-info">
+                            Leave blank to inherit the site defaults
+                            (@WelcomeMat.Services.StayTimesService.Format(Model.GlobalStayTimes.CheckIn)
+                            and @WelcomeMat.Services.StayTimesService.Format(Model.GlobalStayTimes.CheckOut)).
+                            These set when door codes start and stop working for this property, and
+                            the times in its calendar feed. Check-out must not be later than check-in.
+                        </p>
+                    </div>
+                </div>
+                <div>
+                    <div class="form-group">
+                        <label for="property-information">Information (one per line)</label>
+                        <textarea id="property-information" name="information" rows="5">@prop.Information</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="property-checkin-procedures">Check-in Procedures (one per line)</label>
+                        <textarea id="property-checkin-procedures" name="checkinProcedures" rows="8">@prop.CheckinProcedures</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="property-checkout-procedures">Check-out Procedures (one per line)</label>
+                        <textarea id="property-checkout-procedures" name="checkoutProcedures" rows="8">@prop.CheckoutProcedures</textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <a href="/admin/properties" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn">Save</button>
+            </div>
+        </form>
+    </div>
+
+    <div x-show="tab === 'photos'" class="tab-panel">
+        @if (Model.HasThumbnail)
+        {
+            <div style="margin-bottom:1rem;display:flex;flex-direction:column;align-items:flex-start;gap:0.25rem">
+                <h3>Current Thumbnail</h3>
+                <img class="gallery-img" src="/images/@prop.Id/thumb.jpg?v=@Model.ThumbVersion" alt="Current thumbnail" />
+                <form method="post" asp-page-handler="RemoveThumbnail" asp-route-id="@prop.Id">
+                    <button type="submit" class="btn btn-danger btn-sm">Remove Thumbnail</button>
+                </form>
+            </div>
+        }
+        @if (Model.Photos.Count > 0)
+        {
+            var photosJson = System.Text.Json.JsonSerializer.Serialize(
+                Model.Photos.Select(System.IO.Path.GetFileName).ToList());
+            <div x-data='photoSorter(@Html.Raw(photosJson))'>
+                <div class="gallery" style="margin-bottom:1rem">
+                    <template x-for="(fname, i) in photos" :key="fname">
+                        <div style="display:flex;flex-direction:column;align-items:center;gap:0.25rem;cursor:grab"
+                             draggable="true"
+                             @@dragstart="dragStart(i)"
+                             @@dragover.prevent="dragOver(i)"
+                             @@drop.prevent="drop()"
+                             @@dragend="dragEnd()">
+                            <img class="gallery-img" :src="'/images/@prop.Id/' + fname" alt="Property photo" loading="lazy" />
+                            <div style="display:flex;gap:0.25rem">
+                                <form method="post" asp-page-handler="SetThumbnail" asp-route-id="@prop.Id">
+                                    <input type="hidden" name="filename" :value="fname" />
+                                    <button type="submit" class="btn btn-secondary btn-sm">Set as thumbnail</button>
+                                </form>
+                                <form method="post" asp-page-handler="DeletePhoto" asp-route-id="@prop.Id">
+                                    <input type="hidden" name="filename" :value="fname" />
+                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                </form>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                <form method="post" asp-page-handler="ReorderPhotos" asp-route-id="@prop.Id" x-ref="reorderForm">
+                    <template x-for="fname in photos" :key="'order-' + fname">
+                        <input type="hidden" name="filenames" :value="fname" />
+                    </template>
+                    <button type="submit" class="btn btn-secondary" x-show="dirty" style="margin-bottom:1rem">Save Order</button>
+                </form>
+            </div>
+        }
+        else
+        {
+            <p class="empty-state">No photos uploaded yet.</p>
+        }
+
+        <form method="post" asp-page-handler="UploadPhotos" asp-route-id="@prop.Id"
+              enctype="multipart/form-data" class="settings-form">
+            <div class="form-group">
+                <label for="photo-upload">Upload Photos (JPG)</label>
+                <input type="file" id="photo-upload" name="photos" accept=".jpg,.jpeg" multiple />
+            </div>
+            <button type="submit" class="btn">Upload</button>
+        </form>
+    </div>
+
+
+
+
+</div>
+
