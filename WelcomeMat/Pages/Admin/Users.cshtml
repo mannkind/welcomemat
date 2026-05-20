@@ -1,0 +1,84 @@
+@page "/admin/users"
+@model WelcomeMat.Pages.Admin.UsersModel
+@{
+    ViewData["Title"] = "Manage Users";
+}
+
+<div x-data="{ error: '' }">
+    <div class="admin-header">
+        <h2>Allowlist</h2>
+        <button type="button" class="btn" x-on:click="error = ''; $refs.addModal.showModal()">Add User</button>
+    </div>
+
+    @if (Model.Allowlist.Count == 0)
+    {
+        <p class="admin-empty">No users on the allowlist yet.</p>
+    }
+    else
+    {
+        <div id="user-list" class="admin-list">
+            @foreach (var entry in Model.Allowlist)
+            {
+                var user = Model.Users.FirstOrDefault(u => u.Email == entry.Email);
+                <div class="admin-row">
+                    <div class="admin-row-main">
+                        <div class="admin-row-title">
+                            @entry.Email
+                            @if (user?.IsAdmin == true)
+                            {
+                                <span class="badge badge-admin">Admin</span>
+                            }
+                        </div>
+                        @if (!string.IsNullOrEmpty(user?.Name))
+                        {
+                            <div class="admin-row-meta">@user.Name</div>
+                        }
+                    </div>
+                    <div class="admin-row-actions">
+                        @if (user is not null)
+                        {
+                            <form method="post" asp-page-handler="SetAdmin" asp-route-id="@user.Id"
+                                  x-on:submit.prevent="adminRowSubmit($event.target)">
+                                @if (user.IsAdmin)
+                                {
+                                    <button type="submit" class="btn btn-danger btn-sm">Remove Admin</button>
+                                }
+                                else
+                                {
+                                    <button type="submit" class="btn btn-sm">Make Admin</button>
+                                }
+                            </form>
+                            @if (!user.IsAdmin && user.Id != Model.CurrentUserId)
+                            {
+                                <form method="post" asp-page-handler="Impersonate" asp-route-id="@user.Id"
+                                      x-on:submit.prevent="adminRowSubmit($event.target)">
+                                    <button type="submit" class="btn btn-secondary btn-sm">Impersonate</button>
+                                </form>
+                            }
+                        }
+                        <form method="post" asp-page-handler="RemoveUser" asp-route-id="@entry.Id"
+                              x-on:submit.prevent="confirm('Remove @entry.Email?') && adminRowSubmit($event.target)">
+                            <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <dialog x-ref="addModal" class="modal">
+        <form method="post" asp-page-handler="AddUser"
+              x-on:submit.prevent="adminSubmit($event.target).then(e => error = e)">
+            <h3>Add User</h3>
+            <p x-show="error" x-text="error" class="modal-error"></p>
+            <div class="form-group">
+                <label for="user-email">Email</label>
+                <input type="email" id="user-email" name="email" placeholder="email@example.com" required />
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" x-on:click="$refs.addModal.close()">Cancel</button>
+                <button type="submit" class="btn">Add</button>
+            </div>
+        </form>
+    </dialog>
+</div>
