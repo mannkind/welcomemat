@@ -11,7 +11,7 @@
 </div>
 
 <div x-data="{
-    tab: ['details','photos'].includes(window.location.hash.slice(1))
+    tab: ['details','photos','door-codes'].includes(window.location.hash.slice(1))
          ? window.location.hash.slice(1)
          : 'details',
     setTab(name) {
@@ -22,6 +22,7 @@
     <nav class="tab-nav">
         <button type="button" :class="{ active: tab === 'details' }" @@click="setTab('details')">Details</button>
         <button type="button" :class="{ active: tab === 'photos' }" @@click="setTab('photos')">Photos</button>
+        <button type="button" :class="{ active: tab === 'door-codes' }" @@click="setTab('door-codes')">Door Codes</button>
     </nav>
 
     <div x-show="tab === 'details'" class="tab-panel">
@@ -190,5 +191,27 @@
 
 
 
+    <div x-show="tab === 'door-codes'" class="tab-panel">
+        <h3>Guest Door Codes</h3>
+        @if (!Model.Users.Any())
+        {
+            <p>No guests have signed in yet.</p>
+        }
+        else
+        {
+            <form method="post" asp-page-handler="GuestDoorCode" asp-route-id="@prop.Id">
+                @foreach (var user in Model.Users)
+                {
+                    var code = Model.GuestDoorCodes.FirstOrDefault(g => g.UserId == user.Id)?.DoorCode ?? "";
+                    <div class="form-inline">
+                        <input type="hidden" name="userId" value="@user.Id" />
+                        <span>@(string.IsNullOrEmpty(user.Name) ? user.Email : $"{user.Name} ({user.Email})")</span>
+                        <input type="text" name="doorCode" value="@code" placeholder="Guest door code" />
+                    </div>
+                }
+                <button type="submit" class="btn">Save All</button>
+            </form>
+        }
+    </div>
 </div>
 

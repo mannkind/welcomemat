@@ -44,6 +44,8 @@ public class PropertyEditModel : PageModel
     }
 
     public PropertyEntity? Property { get; private set; }
+    public List<User> Users { get; private set; } = [];
+    public List<GuestDoorCode> GuestDoorCodes { get; private set; } = [];
     public List<string> Photos { get; private set; } = [];
     public bool HasThumbnail { get; private set; }
     public long ThumbVersion { get; private set; }
@@ -84,6 +86,8 @@ public class PropertyEditModel : PageModel
 
 
 
+        this.Users = this.Db.Users.OrderBy(u => u.Name).ToList();
+        this.GuestDoorCodes = this.Db.GuestDoorCodes.Where(g => g.PropertyId == id).ToList();
         var imageDir = Path.Combine(this.Options.Value.ImagesPath, id.ToString());
         this.Photos = this.Images.ListGalleryFilenames(id).Select(f => $"/images/{id}/{f}").ToList();
 
@@ -377,6 +381,37 @@ public class PropertyEditModel : PageModel
 
 
 
+    /// <summary>
+    /// Save the per-guest door codes.
+    /// </summary>
+    /// <param name="id"></param>
+    /// <param name="userId"></param>
+    /// <param name="doorCode"></param>
+    /// <returns></returns>
+    public IActionResult OnPostGuestDoorCode(Guid id, [FromForm] List<Guid> userId, [FromForm] List<string?> doorCode)
+    {
+        for (var i = 0; i < userId.Count; i++)
+        {
+            var uid = userId[i];
+            var code = i < doorCode.Count ? doorCode[i] ?? "" : "";
+            var existing = this.Db.GuestDoorCodes.Find(uid, id);
+            if (existing is null)
+            {
+                this.Db.GuestDoorCodes.Add(new GuestDoorCode
+                {
+                    UserId = uid,
+                    PropertyId = id,
+                    DoorCode = code,
+                });
+            }
+            else
+            {
+                existing.DoorCode = code;
+            }
+        }
+        this.Db.SaveChanges();
+        return this.RedirectToPage(null, null, new { id }, "door-codes");
+    }
     /// <summary>
     /// The database used internally.
     /// </summary>
