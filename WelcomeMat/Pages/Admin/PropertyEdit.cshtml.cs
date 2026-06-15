@@ -44,6 +44,7 @@ public class PropertyEditModel : PageModel
     }
 
     public PropertyEntity? Property { get; private set; }
+    public List<FavoriteSpot> FavoriteSpots { get; private set; } = [];
     public List<User> Users { get; private set; } = [];
     public List<GuestDoorCode> GuestDoorCodes { get; private set; } = [];
     public List<string> Photos { get; private set; } = [];
@@ -86,6 +87,10 @@ public class PropertyEditModel : PageModel
 
 
 
+        this.FavoriteSpots = this.Db.FavoriteSpots
+            .Where(f => f.PropertyId == id)
+            .OrderBy(f => f.SortOrder)
+            .ToList();
         this.Users = this.Db.Users.OrderBy(u => u.Name).ToList();
         this.GuestDoorCodes = this.Db.GuestDoorCodes.Where(g => g.PropertyId == id).ToList();
         var imageDir = Path.Combine(this.Options.Value.ImagesPath, id.ToString());
@@ -381,6 +386,67 @@ public class PropertyEditModel : PageModel
 
 
 
+    /// <summary>
+    /// Add a favorite spot, geocoding its address.
+    /// </summary>
+    /// <param name="id"></param>
+    /// <param name="spotName"></param>
+    /// <param name="spotAddress"></param>
+    /// <param name="spotDescription"></param>
+    /// <param name="ct"></param>
+    /// <returns></returns>
+    public async Task<IActionResult> OnPostAddSpot(
+        Guid id,
+        [FromForm] string? spotName,
+        [FromForm] string? spotAddress,
+        [FromForm] string? spotDescription,
+        CancellationToken ct)
+    {
+        if (!InputLimits.IsValidShortLabel(spotName) || !InputLimits.IsValidShortLabel(spotAddress))
+        {
+            return AjaxResults.ErrorOrFallback(this.HttpContext, "One or more fields is too long.", this.BadRequest());
+        }
+
+        if (!InputLimits.IsValidNote(spotDescription))
+        {
+            return AjaxResults.ErrorOrFallback(this.HttpContext, "Description is too long.", this.BadRequest());
+        }
+
+        var coords = await this.Geocode.GeocodeAsync(spotAddress ?? "", ct);
+        var maxOrder = this.Db.FavoriteSpots.Where(f => f.PropertyId == id)
+            .Select(f => (int?)f.SortOrder).Max() ?? -1;
+
+        this.Db.FavoriteSpots.Add(new FavoriteSpot
+        {
+            PropertyId = id,
+            Name = spotName ?? "",
+            Address = spotAddress ?? "",
+            Description = spotDescription ?? "",
+            Latitude = coords?.Lat,
+            Longitude = coords?.Lon,
+            SortOrder = maxOrder + 1,
+            CreatedAt = DateTime.UtcNow,
+        });
+        await this.Db.SaveChangesAsync(ct);
+        return this.RedirectToPage(null, null, new { id }, "favorite-places");
+    }
+
+    /// <summary>
+    /// Remove a favorite spot.
+    /// </summary>
+    /// <param name="id"></param>
+    /// <param name="spotId"></param>
+    /// <returns></returns>
+    public IActionResult OnPostRemoveSpot(Guid id, [FromForm] Guid spotId)
+    {
+        var spot = this.Db.FavoriteSpots.Find(spotId);
+        if (spot is not null)
+        {
+            this.Db.FavoriteSpots.Remove(spot);
+            this.Db.SaveChanges();
+        }
+        return this.RedirectToPage(null, null, new { id }, "favorite-places");
+    }
     /// <summary>
     /// Save the per-guest door codes.
     /// </summary>

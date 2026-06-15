@@ -4,6 +4,8 @@
     var prop = Model.Property!;
 }
 
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous" />
 
 <div class="admin-header">
     <h2>Edit Property: @prop.Name</h2>
@@ -11,7 +13,7 @@
 </div>
 
 <div x-data="{
-    tab: ['details','photos','door-codes'].includes(window.location.hash.slice(1))
+    tab: ['details','photos','door-codes','favorite-places'].includes(window.location.hash.slice(1))
          ? window.location.hash.slice(1)
          : 'details',
     setTab(name) {
@@ -23,6 +25,7 @@
         <button type="button" :class="{ active: tab === 'details' }" @@click="setTab('details')">Details</button>
         <button type="button" :class="{ active: tab === 'photos' }" @@click="setTab('photos')">Photos</button>
         <button type="button" :class="{ active: tab === 'door-codes' }" @@click="setTab('door-codes')">Door Codes</button>
+        <button type="button" :class="{ active: tab === 'favorite-places' }" @@click="setTab('favorite-places'); setTimeout(() => window._spotsMap && window._spotsMap.invalidateSize(), 50)">Favorite Places</button>
     </nav>
 
     <div x-show="tab === 'details'" class="tab-panel">
@@ -213,5 +216,56 @@
             </form>
         }
     </div>
+    <div x-show="tab === 'favorite-places'" class="tab-panel">
+        <div class="edit-section-columns">
+            <h3>Favorite Places</h3>
+
+            <form method="post" asp-page-handler="AddSpot" asp-route-id="@prop.Id" class="settings-form">
+                <div class="form-group">
+                    <label for="spot-name">Name</label>
+                    <input type="text" id="spot-name" name="spotName" />
+                </div>
+                <div class="form-group">
+                    <label for="spot-address">Address</label>
+                    <input type="text" id="spot-address" name="spotAddress" />
+                    <p class="form-info">Geocoded via <a href="https://nominatim.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap (Nominatim)</a>.</p>
+                </div>
+                <div class="form-group">
+                    <label for="spot-description">Description</label>
+                    <input type="text" id="spot-description" name="spotDescription" />
+                </div>
+                <button type="submit" class="btn btn-secondary">+ Add Place</button>
+            </form>
+
+            @if (prop.Latitude.HasValue && prop.Longitude.HasValue)
+            {
+                var spotsMapData = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    property = new { lat = prop.Latitude.Value, lng = prop.Longitude.Value, name = prop.Name },
+                    spots = Model.FavoriteSpots
+                        .Where(s => s.Latitude.HasValue && s.Longitude.HasValue)
+                        .Select(s => new { lat = s.Latitude!.Value, lng = s.Longitude!.Value, name = s.Name, description = s.Description })
+                });
+                <div id="admin-spots-map" data-map="@spotsMapData"></div>
+            }
+
+            <div class="spots-list">
+                @foreach (var spot in Model.FavoriteSpots)
+                {
+                    <div class="spot-card">
+                        <strong>@spot.Name</strong>
+                        @if (!string.IsNullOrEmpty(spot.Address)) { <span class="spot-address">@spot.Address</span> }
+                        @if (!string.IsNullOrEmpty(spot.Description)) { <p class="spot-description">@spot.Description</p> }
+                        <form method="post" asp-page-handler="RemoveSpot" asp-route-id="@prop.Id" style="margin-top:0.5rem">
+                            <input type="hidden" name="spotId" value="@spot.Id" />
+                            <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                        </form>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
 
