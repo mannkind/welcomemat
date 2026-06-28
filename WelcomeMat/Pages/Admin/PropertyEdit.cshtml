@@ -13,7 +13,7 @@
 </div>
 
 <div x-data="{
-    tab: ['details','photos','door-codes','favorite-places'].includes(window.location.hash.slice(1))
+    tab: ['details','photos','door-codes','favorite-places','walking-paths'].includes(window.location.hash.slice(1))
          ? window.location.hash.slice(1)
          : 'details',
     setTab(name) {
@@ -26,6 +26,7 @@
         <button type="button" :class="{ active: tab === 'photos' }" @@click="setTab('photos')">Photos</button>
         <button type="button" :class="{ active: tab === 'door-codes' }" @@click="setTab('door-codes')">Door Codes</button>
         <button type="button" :class="{ active: tab === 'favorite-places' }" @@click="setTab('favorite-places'); setTimeout(() => window._spotsMap && window._spotsMap.invalidateSize(), 50)">Favorite Places</button>
+        <button type="button" :class="{ active: tab === 'walking-paths' }" @@click="setTab('walking-paths'); setTimeout(() => window._drawMap && window._drawMap.invalidateSize(), 50)">Walking Paths</button>
     </nav>
 
     <div x-show="tab === 'details'" class="tab-panel">
@@ -262,6 +263,70 @@
                         </form>
                     </div>
                 }
+            </div>
+        </div>
+    </div>
+    <div x-show="tab === 'walking-paths'" class="tab-panel">
+        <div class="edit-section-columns">
+            <h3>Walking Paths</h3>
+
+            <form method="post" asp-page-handler="AddPath" asp-route-id="@prop.Id" class="settings-form" id="add-path-form" novalidate>
+                <div class="form-group">
+                    <label for="path-name">Path Name</label>
+                    <input type="text" id="path-name" name="pathName" required />
+                </div>
+                <div class="form-group">
+                    <label for="path-color">Color</label>
+                    <input type="color" id="path-color" name="pathColor" value="#3388ff" />
+                </div>
+                <div class="form-group">
+                    <label for="path-weight">Line Weight (px)</label>
+                    <input type="number" id="path-weight" name="pathWeight" value="3" min="1" max="12" />
+                </div>
+                <div class="form-group">
+                    <label for="path-opacity">Opacity (<span id="opacity-display">1.0</span>)</label>
+                    <input type="range" id="path-opacity" name="pathOpacity" value="1.0" min="0" max="1" step="0.1" />
+                </div>
+                <input type="hidden" id="path-coordinates" name="pathCoordinates" value="[]" />
+                <input type="hidden" id="path-id" name="pathId" value="" />
+                <p id="path-error" class="modal-error" style="display:none"></p>
+                <div class="modal-actions">
+                    <button type="submit" class="btn" id="path-submit-btn">+ Add Path</button>
+                    <button type="button" class="btn btn-secondary" id="path-cancel-btn" style="display:none">Cancel edit</button>
+                </div>
+            </form>
+
+            <div class="paths-list">
+                @foreach (var path in Model.WalkingPaths)
+                {
+                    <div class="path-card">
+                        <span class="path-color-swatch" style="background:@path.Color"></span>
+                        <strong>@path.Name</strong>
+                        <span class="path-meta">@path.Weight px &middot; opacity @path.Opacity.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)</span>
+                        <button type="button" class="btn btn-secondary btn-sm path-edit-btn" style="margin-left:auto"
+                                data-id="@path.Id" data-name="@path.Name" data-color="@path.Color"
+                                data-weight="@path.Weight"
+                                data-opacity="@path.Opacity.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)"
+                                data-coordinates="@path.Coordinates">
+                            Edit
+                        </button>
+                        <form method="post" asp-page-handler="RemovePath" asp-route-id="@prop.Id">
+                            <input type="hidden" name="pathId" value="@path.Id" />
+                            <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                        </form>
+                    </div>
+                }
+            </div>
+
+            <div class="edit-section-map">
+                <label>Draw Path (click map to add waypoints)</label>
+                <div id="path-drawing-map"
+                     data-lat="@(prop.Latitude.HasValue ? prop.Latitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "20")"
+                     data-lng="@(prop.Longitude.HasValue ? prop.Longitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "0")"
+                     data-zoom="@(prop.Latitude.HasValue ? "14" : "2")"></div>
+                <button type="button" class="btn btn-secondary" id="path-clear-btn" style="margin-top:0.5rem">Clear Path</button>
+                <button type="button" class="btn btn-secondary" id="path-undo-btn" style="margin-top:0.5rem; margin-left:0.5rem" disabled>Undo Last Point</button>
+                <p class="form-info" id="path-point-count">0 points</p>
             </div>
         </div>
     </div>

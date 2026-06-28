@@ -45,6 +45,7 @@ public class PropertyEditModel : PageModel
 
     public PropertyEntity? Property { get; private set; }
     public List<FavoriteSpot> FavoriteSpots { get; private set; } = [];
+    public List<WalkingPath> WalkingPaths { get; private set; } = [];
     public List<User> Users { get; private set; } = [];
     public List<GuestDoorCode> GuestDoorCodes { get; private set; } = [];
     public List<string> Photos { get; private set; } = [];
@@ -90,6 +91,10 @@ public class PropertyEditModel : PageModel
         this.FavoriteSpots = this.Db.FavoriteSpots
             .Where(f => f.PropertyId == id)
             .OrderBy(f => f.SortOrder)
+            .ToList();
+        this.WalkingPaths = this.Db.WalkingPaths
+            .Where(w => w.PropertyId == id)
+            .OrderBy(w => w.SortOrder)
             .ToList();
         this.Users = this.Db.Users.OrderBy(u => u.Name).ToList();
         this.GuestDoorCodes = this.Db.GuestDoorCodes.Where(g => g.PropertyId == id).ToList();
@@ -446,6 +451,184 @@ public class PropertyEditModel : PageModel
             this.Db.SaveChanges();
         }
         return this.RedirectToPage(null, null, new { id }, "favorite-places");
+    }
+    private record PathInput
+    {
+        public string Name { get; init; } = string.Empty;
+
+        public string Color { get; init; } = string.Empty;
+
+        public int Weight { get; init; }
+
+        public double Opacity { get; init; }
+
+        public string CoordinatesJson { get; init; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Add and update refuse a path for the same reasons; null once path holds
+    /// something worth saving.
+    /// </summary>
+    /// <param name="name"></param>
+    /// <param name="color"></param>
+    /// <param name="weight"></param>
+    /// <param name="opacity"></param>
+    /// <param name="coordinates"></param>
+    /// <param name="path"></param>
+    /// <returns></returns>
+    private IActionResult? ValidatePath(
+        string? name, string? color, int weight, double opacity, string? coordinates, out PathInput path)
+    {
+        path = null!;
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return AjaxResults.ErrorOrFallback(this.HttpContext, "Path name is required.", this.BadRequest());
+        }
+
+        if (!InputLimits.IsValidShortLabel(name))
+        {
+            return AjaxResults.ErrorOrFallback(this.HttpContext, "Path name is too long.", this.BadRequest());
+        }
+
+        var resolvedColor = color ?? "#3388ff";
+        if (!InputLimits.IsValidHexColor(resolvedColor))
+        {
+            return AjaxResults.ErrorOrFallback(this.HttpContext, "Path color must be a #RRGGBB hex value.", this.BadRequest());
+        }
+
+        if (!WalkingPathValidator.IsValidWeight(weight))
+        {
+            return AjaxResults.ErrorOrFallback(this.HttpContext,
+                $"Path weight must be between {InputLimits.MinWalkingPathWeight} and {InputLimits.MaxWalkingPathWeight}.",
+                this.BadRequest());
+        }
+
+        if (!WalkingPathValidator.IsValidOpacity(opacity))
+        {
+            return AjaxResults.ErrorOrFallback(this.HttpContext,
+                $"Path opacity must be between {InputLimits.MinWalkingPathOpacity} and {InputLimits.MaxWalkingPathOpacity}.",
+                this.BadRequest());
+        }
+
+        if (!WalkingPathValidator.TryParse(coordinates, out var points, out var error))
+        {
+            return AjaxResults.ErrorOrFallback(this.HttpContext, error, this.BadRequest());
+        }
+
+        path = new PathInput
+        {
+            Name = name,
+            Color = resolvedColor,
+            Weight = weight,
+            Opacity = opacity,
+            CoordinatesJson = WalkingPathValidator.ToJson(points),
+        };
+        return null;
+    }
+
+    /// <summary>
+    /// Add a walking path.
+    /// </summary>
+    /// <param name="id"></param>
+    /// <param name="pathName"></param>
+    /// <param name="pathColor"></param>
+    /// <param name="pathWeight"></param>
+    /// <param name="pathOpacity"></param>
+    /// <param name="pathCoordinates"></param>
+    /// <param name="ct"></param>
+    /// <returns></returns>
+    public async Task<IActionResult> OnPostAddPath(
+        Guid id,
+        [FromForm] string? pathName,
+        [FromForm] string? pathColor,
+        [FromForm] int pathWeight,
+        [FromForm] double pathOpacity,
+        [FromForm] string? pathCoordinates,
+        CancellationToken ct)
+    {
+        if (this.ValidatePath(pathName, pathColor, pathWeight, pathOpacity, pathCoordinates, out var path) is { } rejection)
+        {
+            return rejection;
+        }
+
+        var maxOrder = this.Db.WalkingPaths.Where(w => w.PropertyId == id).Select(w => (int?)w.SortOrder).Max() ?? -1;
+        this.Db.WalkingPaths.Add(new WalkingPath
+        {
+            PropertyId = id,
+            Name = path.Name,
+            Color = path.Color,
+            Weight = path.Weight,
+            Opacity = path.Opacity,
+            Coordinates = path.CoordinatesJson,
+            SortOrder = maxOrder + 1,
+            CreatedAt = DateTime.UtcNow,
+        });
+        await this.Db.SaveChangesAsync(ct);
+        this.TempData["Flash"] = "Path added.";
+        return AjaxResults.OkOrFallback(this.HttpContext, this.RedirectToPage(null, null, new { id }, "walking-paths"));
+    }
+
+    /// <summary>
+    /// Save a walking path.
+    /// </summary>
+    /// <param name="id"></param>
+    /// <param name="pathId"></param>
+    /// <param name="pathName"></param>
+    /// <param name="pathColor"></param>
+    /// <param name="pathWeight"></param>
+    /// <param name="pathOpacity"></param>
+    /// <param name="pathCoordinates"></param>
+    /// <param name="ct"></param>
+    /// <returns></returns>
+    public async Task<IActionResult> OnPostUpdatePath(
+        Guid id,
+        [FromForm] Guid pathId,
+        [FromForm] string? pathName,
+        [FromForm] string? pathColor,
+        [FromForm] int pathWeight,
+        [FromForm] double pathOpacity,
+        [FromForm] string? pathCoordinates,
+        CancellationToken ct)
+    {
+        if (this.ValidatePath(pathName, pathColor, pathWeight, pathOpacity, pathCoordinates, out var path) is { } rejection)
+        {
+            return rejection;
+        }
+
+        var existing = this.Db.WalkingPaths.Find(pathId);
+        if (existing is null || existing.PropertyId != id)
+        {
+            return this.NotFound();
+        }
+
+        existing.Name = path.Name;
+        existing.Color = path.Color;
+        existing.Weight = path.Weight;
+        existing.Opacity = path.Opacity;
+        existing.Coordinates = path.CoordinatesJson;
+
+        await this.Db.SaveChangesAsync(ct);
+        this.TempData["Flash"] = "Path updated.";
+        return AjaxResults.OkOrFallback(this.HttpContext, this.RedirectToPage(null, null, new { id }, "walking-paths"));
+    }
+
+    /// <summary>
+    /// Remove a walking path.
+    /// </summary>
+    /// <param name="id"></param>
+    /// <param name="pathId"></param>
+    /// <returns></returns>
+    public IActionResult OnPostRemovePath(Guid id, [FromForm] Guid pathId)
+    {
+        var path = this.Db.WalkingPaths.Find(pathId);
+        if (path is not null)
+        {
+            this.Db.WalkingPaths.Remove(path);
+            this.Db.SaveChanges();
+        }
+        this.TempData["Flash"] = "Path removed.";
+        return this.RedirectToPage(null, null, new { id }, "walking-paths");
     }
     /// <summary>
     /// Save the per-guest door codes.
