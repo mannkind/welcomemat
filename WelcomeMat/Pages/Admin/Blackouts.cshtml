@@ -1,0 +1,80 @@
+@page "/admin/blackouts"
+@model WelcomeMat.Pages.Admin.BlackoutsModel
+@{
+    ViewData["Title"] = "Manage Blackouts";
+}
+
+<div x-data="{ error: '' }">
+    <div class="admin-header">
+        <h2>Blackout Dates</h2>
+        <button type="button" class="btn" x-on:click="error = ''; $refs.addModal.showModal()">Add Blackout</button>
+    </div>
+
+    @if (Model.Blackouts.Count == 0)
+    {
+        <p class="admin-empty">No blackout dates set.</p>
+    }
+    else
+    {
+        <div id="blackout-list" class="admin-list">
+            @foreach (var b in Model.Blackouts)
+            {
+                <div class="admin-row">
+                    <div class="admin-row-main">
+                        <div class="admin-row-title">@b.Date</div>
+                        <div class="admin-row-meta">
+                            @(b.Property?.Name ?? "Global")
+                            @if (!string.IsNullOrEmpty(b.Reason))
+                            {
+                                <span>&nbsp;·&nbsp;@b.Reason</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="admin-row-actions">
+                        <form method="post" asp-page-handler="Remove" asp-route-id="@b.Id"
+                              x-on:submit.prevent="confirm('Remove blackout on @b.Date?') && adminRowSubmit($event.target)">
+                            <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <dialog x-ref="addModal" class="modal">
+        <form method="post" asp-page-handler="Add"
+              x-on:submit.prevent="adminSubmit($event.target).then(e => error = e)">
+            <h3>Add Blackout</h3>
+            <p x-show="error" x-text="error" class="modal-error"></p>
+            <div class="form-group">
+                <label for="start_date">From</label>
+                <input type="date" id="start_date" name="startDate" required />
+            </div>
+            <div class="form-group">
+                <label for="end_date">To</label>
+                <input type="date" id="end_date" name="endDate" required />
+            </div>
+            <div class="form-group">
+                <label for="blackout-reason">Reason (optional)</label>
+                <input type="text" id="blackout-reason" name="reason" placeholder="Reason (optional)" />
+            </div>
+            @if (Model.Properties.Count > 1)
+            {
+                <div class="form-group">
+                    <label for="blackout-property">Property</label>
+                    <select id="blackout-property" name="propertyId">
+                        <option value="">Global (all properties)</option>
+                        @foreach (var p in Model.Properties)
+                        {
+                            <option value="@p.Id">@p.Name</option>
+                        }
+                    </select>
+                </div>
+            }
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" x-on:click="$refs.addModal.close()">Cancel</button>
+                <button type="submit" class="btn">Add</button>
+            </div>
+        </form>
+    </dialog>
+</div>
