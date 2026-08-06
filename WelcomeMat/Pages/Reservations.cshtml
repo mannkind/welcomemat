@@ -1,0 +1,77 @@
+@page
+@model WelcomeMat.Pages.ReservationsModel
+@using WelcomeMat.Services
+@{
+    ViewData["Title"] = "My Reservations";
+    ViewData["CurrentPage"] = "reservations";
+    var upcoming = Model.MyReservations.Where(r => r.CheckOut > Model.TodayFor(r.Property!)).ToList();
+    var past = Model.MyReservations.Where(r => r.CheckOut <= Model.TodayFor(r.Property!)).OrderByDescending(r => r.CheckIn).ToList();
+
+    // Dates get picked on the calendar, not here; this just says which one to open.
+    string EditUrl(WelcomeMat.Data.Entities.Reservation r) =>
+        $"/calendar/{r.PropertyId}?year={r.CheckIn.Year}&month={r.CheckIn.Month}&edit={r.Id}";
+
+    WelcomeMat.Pages.Models.ReservationRowView Row(WelcomeMat.Data.Entities.Reservation r, bool showChangeAndCancel)
+    {
+        var entry = Model.GuestbookEntries.GetValueOrDefault(r.Id);
+        return new()
+        {
+            Reservation = r,
+            EditUrl = EditUrl(r),
+            ShowChangeAndCancel = showChangeAndCancel,
+            CanGuestbook = GuestbookService.IsInWriteWindow(r.CheckOut, Model.TodayFor(r.Property!)),
+            GuestbookLabel = entry is not null ? "Edit Guestbook" : "Guestbook",
+            GuestbookMessage = entry?.Message ?? "",
+        };
+    }
+}
+
+<div x-data="calendarApp()">
+    <h2>My Reservations</h2>
+
+    @if (Model.MyReservations.Count == 0)
+    {
+        <p class="empty-state">You have no upcoming reservations.</p>
+    }
+    else
+    {
+        @if (upcoming.Any())
+        {
+            <h3>Upcoming</h3>
+            <div class="reservations-timeline">
+                @foreach (var r in upcoming)
+                {
+                    <partial name="_ReservationRow" model="Row(r, true)" />
+                }
+            </div>
+        }
+
+        @if (past.Any())
+        {
+            <h3>Past</h3>
+            <div class="reservations-timeline past">
+                @foreach (var r in past)
+                {
+                    <partial name="_ReservationRow" model="Row(r, Model.IsAdmin)" />
+                }
+            </div>
+        }
+    }
+
+
+    <dialog x-ref="guestbookModal" class="modal">
+        <form x-on:submit.prevent>
+            <h3>Guestbook</h3>
+            <p x-show="guestbookError" x-text="guestbookError" class="modal-error"></p>
+            <div class="form-group">
+                <label for="guestbook-message">Your message</label>
+                <textarea id="guestbook-message" rows="5" x-model="guestbookMessage" placeholder="Share a memory from your stay..."></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" x-on:click="$refs.guestbookModal.close()">Cancel</button>
+                <button type="button" class="btn" x-on:click="submitGuestbook()">Save</button>
+            </div>
+        </form>
+    </dialog>
+
+</div>
