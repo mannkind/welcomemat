@@ -36,6 +36,16 @@ public class AdminBlackoutsTests : TestBase
         await this.Expect(row).ToContainTextAsync(this.Seed.BeachName);
     }
 
+    [Test]
+    public async Task Blackout_appears_on_the_calendar()
+    {
+        var date = DateOnly.FromDateTime(DateTime.Today).AddDays(50);
+        var dateStr = date.ToString("yyyy-MM-dd");
+        await this.AddBlackoutAsync(dateStr, dateStr, "Closed", propertyLabel: null);
+
+        await this.Page.GotoAsync($"/calendar/{this.Seed.BeachId}?year={date.Year}&month={date.Month}");
+        await this.Expect(this.Page.Locator($".day.blackout[data-date='{dateStr}']")).ToHaveCountAsync(1);
+    }
 
     [Test]
     public async Task Can_remove_a_blackout()

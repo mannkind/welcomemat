@@ -1,0 +1,221 @@
+@page "/calendar/{property:guid?}"
+@model WelcomeMat.Pages.CalendarModel
+@{
+    ViewData["Title"] = "Calendar";
+    ViewData["CurrentPage"] = "calendar";
+    var prev = Model.PrevMonth();
+    var next = Model.NextMonth();
+    var propId = Model.SelectedProperty?.Id;
+    var isAdmin = Model.IsAdmin;
+
+    string ShortName(string? full)
+    {
+        if (string.IsNullOrEmpty(full)) return "";
+        var parts = full.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length < 2) return full;
+        return parts[0] + " " + parts[^1][0] + ".";
+    }
+
+    string GetInitials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1) return parts[0][..Math.Min(2, parts[0].Length)].ToUpper();
+        return (parts[0][0].ToString() + parts[^1][0]).ToUpper();
+    }
+
+    // The departing guest's badge, outlined instead of filled.
+    Func<WelcomeMat.Data.Entities.Reservation, Microsoft.AspNetCore.Html.IHtmlContent> OutBadge =
+        @<span class="day-initials day-initials-out" title="@(ShortName(item.User?.Name)) checks out">@GetInitials(item.User?.Name)</span>;
+}
+
+<div x-data="calendarApp('@Model.UserId', @(isAdmin ? "true" : "false"))">
+
+    <div id="calendar-grid" class="calendar">
+        <div class="calendar-header">
+            <a href="@Model.CalendarUrl(prev, propId)" class="btn">&larr;</a>
+            <div class="calendar-header-center">
+                <h2>@(new DateTime(Model.Year, Model.Month, 1).ToString("MMMM yyyy"))</h2>
+                @if (Model.SelectedProperty is not null)
+                {
+                    <span class="calendar-property-name">@Model.SelectedProperty.Name</span>
+                }
+            </div>
+            <a href="@Model.CalendarUrl(next, propId)" class="btn">&rarr;</a>
+        </div>
+
+        <div class="calendar-weekdays">
+            <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+        </div>
+
+        <div class="calendar-days">
+            @foreach (var day in Model.Days)
+            {
+                var dateStr = day.Date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+                var isAvailable = !day.IsPast && !day.IsBlackout && day.Reservation is null;
+                var isClickable = day.Reservation is null && (!day.IsPast && !day.IsBlackout || isAdmin);
+                var showOut = day.CheckoutReservation is not null && !day.IsBlackout;
+
+                var classes = new List<string> { "day" };
+                if (!day.InMonth) classes.Add("other-month");
+                if (day.IsToday) classes.Add("today");
+                if (day.IsPast) classes.Add("past");
+                if (day.IsBlackout) classes.Add("blackout");
+                else if (day.Reservation is not null) classes.Add("booked");
+                else if (day.CheckoutReservation is not null) classes.Add("checkout");
+                if (isAvailable) classes.Add("available");
+                if (showOut) classes.Add("has-checkout");
+
+                var cancelUrl = isAdmin && day.Reservation?.UserId != Model.UserId
+                    ? $"/admin/reservations/{day.Reservation?.Id}"
+                    : $"/reservations/{day.Reservation?.Id}";
+                var cancelMsg = $"Cancel entire reservation ({day.Reservation?.CheckIn} to {day.Reservation?.CheckOut})?";
+                var showPanel = day.ShowCancel && day.Reservation is not null;
+
+                // One shape for every cell; the data-* attrs are the facts, dayClick decides.
+                <div class="@string.Join(" ", classes)"
+                     data-date="@dateStr"
+                     data-clickable="@(isClickable ? "1" : null)"
+                     data-past="@(day.IsPast ? "1" : null)"
+                     data-blackout="@(day.IsBlackout ? "1" : null)"
+                     data-res-id="@(day.Reservation?.Id.ToString())"
+                     data-res-checkin="@(showPanel ? day.Reservation!.CheckIn.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) : null)"
+                     data-res-checkout="@(showPanel ? day.Reservation!.CheckOut.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) : null)"
+                     data-res-name="@(showPanel ? day.Reservation!.User?.Name ?? "" : null)"
+                     data-cancel-url="@(showPanel ? cancelUrl : null)"
+                     data-cancel-msg="@(showPanel ? cancelMsg : null)"
+                     x-bind:class="dayClasses('@dateStr', '@(day.Reservation?.Id.ToString())', @(day.IsBlackout ? "true" : "false"), @(day.IsPast ? "true" : "false"))"
+                     x-on:click="dayClick($el)">
+                    <span class="day-number">@day.Date.Day</span>
+                    @if (day.IsBlackout)
+                    {
+                        <span class="day-label" title="@day.BlackoutReason">@(string.IsNullOrEmpty(day.BlackoutReason) ? "Blocked" : day.BlackoutReason)</span>
+                    }
+                    else
+                    {
+                        if (showOut)
+                        {
+                            @OutBadge(day.CheckoutReservation!)
+                        }
+                        if (day.Reservation is not null)
+                        {
+                            <span class="day-initials">@GetInitials(day.Reservation.User?.Name)</span>
+                        }
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="calendar-legend">
+            <span class="legend-item"><span class="legend-dot today"></span> Today</span>
+            <span class="legend-item"><span class="legend-dot available"></span> Available</span>
+            <span class="legend-item"><span class="legend-dot booked"></span> Booked</span>
+            <span class="legend-item"><span class="legend-dot checkout"></span> Checkout</span>
+            <span class="legend-item"><span class="legend-dot blackout"></span> Blacked Out</span>
+        </div>
+    </div>
+
+    <p class="calendar-hint" x-show="!editReservationId">Click an available date to start a reservation</p>
+    <p class="calendar-hint" x-show="editReservationId" x-cloak>
+        Click a new check-in date, then a check-out date. Your own nights stay pickable.
+    </p>
+    @if (Model.SelectedProperty is not null)
+    {
+        <p class="calendar-hint">
+            Rules: max @Model.Settings.MaxConsecutiveNights consecutive nights &middot; book at least @Model.Settings.MinAdvanceNoticeDays day(s) ahead &middot; up to @Model.Settings.MaxAdvanceBookingDays days out.
+        </p>
+        @if (isAdmin)
+        {
+            <p class="calendar-hint">
+                <small>Admins do not have to abide by the above rules</small>
+            </p>
+        }
+    }
+
+    <dialog x-ref="reservationModal" class="modal" x-on:click.self="closeReservationModal()">
+        <form x-on:submit.prevent>
+            <h3>Confirm Reservation</h3>
+            <p x-show="modalError" x-text="modalError" class="modal-error"></p>
+            <p x-text="selectedCheckIn && selectedCheckOut ? formatDate(selectedCheckIn) + ' → ' + formatDate(selectedCheckOut) : ''" class="modal-dates"></p>
+            <p x-text="nightCount()" class="modal-nights"></p>
+            @if (propId.HasValue)
+            {
+                <input type="hidden" name="property_id" value="@propId" />
+            }
+            <div class="form-group">
+                <label for="modal-notes">Notes (optional)</label>
+                <textarea id="modal-notes" name="notes" rows="2" x-model="modalNotes"></textarea>
+            </div>
+            @if (isAdmin)
+            {
+                <div class="form-group">
+                    <label for="modal-user">Reserve for</label>
+                    <select id="modal-user" x-model="selectedUserId">
+                        @foreach (var u in Model.AllUsers)
+                        {
+                            var displayName = string.IsNullOrEmpty(u.Name) ? u.Email : u.Name;
+                            if (u.Id == Model.UserId)
+                            {
+                                <option value="@u.Id" selected>@displayName (me)</option>
+                            }
+                            else
+                            {
+                                <option value="@u.Id">@displayName</option>
+                            }
+                        }
+                    </select>
+                </div>
+            }
+            @if (!isAdmin)
+            {
+                <div class="form-info">
+                    <small>Max @Model.Settings.MaxConsecutiveNights nights, book at least @Model.Settings.MinAdvanceNoticeDays day(s) ahead, up to @Model.Settings.MaxAdvanceBookingDays days out.</small>
+                </div>
+            }
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" x-on:click="closeReservationModal()">Cancel</button>
+                <button type="button" class="btn" x-on:click="submitReservation()">Book</button>
+            </div>
+        </form>
+    </dialog>
+
+    <div class="day-detail-panel" :class="{ 'panel-open': panelOpen }">
+        <div class="panel-drag-handle"></div>
+        <div class="panel-header">
+            <div>
+                <div class="panel-title" x-text="panelGuestName || 'Reservation'"></div>
+                <div class="panel-subtitle"
+                     x-text="panelCheckIn && panelCheckOut ? formatDate(panelCheckIn) + ' → ' + formatDate(panelCheckOut) : panelDate">
+                </div>
+            </div>
+            <button class="panel-close" type="button" x-on:click="closeDayPanel()">&times;</button>
+        </div>
+        <div class="panel-actions" x-show="panelReservationId">
+            <button type="button" class="btn btn-secondary"
+                    x-on:click="startEdit(panelReservationId)">Change Dates</button>
+            <button type="button" class="btn btn-danger"
+                    x-on:click="closeDayPanel(); cancelReservation(panelCancelUrl, panelCancelMsg)">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Fixed, not inline: on a phone the grid outruns the viewport. -->
+    <div class="edit-bar" x-show="editReservationId" x-cloak>
+        <div class="edit-bar-info">
+            <div class="edit-bar-title">
+                Changing dates<span x-show="editGuestName"> for <span x-text="editGuestName"></span></span>
+            </div>
+            <div class="edit-bar-range" x-text="editRangeLabel()"></div>
+            <div class="edit-bar-nights" x-text="nightCount()"></div>
+            <p x-show="editError" x-text="editError" class="modal-error"></p>
+        </div>
+        <div class="form-group edit-bar-notes">
+            <label for="edit-notes">Notes</label>
+            <input id="edit-notes" type="text" x-model="editNotes" />
+        </div>
+        <div class="edit-bar-actions">
+            <button type="button" class="btn btn-secondary" x-on:click="cancelEdit()">Cancel</button>
+            <button type="button" class="btn" x-bind:disabled="!selectedCheckOut" x-on:click="saveEdit()">Save Dates</button>
+        </div>
+    </div>
+
+</div>
