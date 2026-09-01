@@ -37,6 +37,10 @@
                     </div>
                     <div class="admin-row-actions">
                         <a href="/admin/properties/@p.Id/edit" class="btn btn-secondary btn-sm">Edit</a>
+                        <form method="post" asp-page-handler="RotateIcal" asp-route-id="@p.Id"
+                              x-on:submit.prevent="confirm('Rotate the calendar link for @p.Name? The old URL will stop working.') && adminRowSubmit($event.target)">
+                            <button type="submit" class="btn btn-secondary btn-sm">Rotate iCal</button>
+                        </form>
                         <form method="post" asp-page-handler="Delete" asp-route-id="@p.Id"
                               x-on:submit.prevent="confirm('Delete @p.Name? This cannot be undone if reservations reference it.') && adminRowSubmit($event.target)">
                             <button type="submit" class="btn btn-danger btn-sm">Delete</button>

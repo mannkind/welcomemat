@@ -129,6 +129,14 @@
                 <button type="submit" class="btn">Save</button>
             </div>
         </form>
+        @if (!string.IsNullOrEmpty(Model.PropertyIcalUrl))
+        {
+            <div class="ical-subscription">
+                <h3>Calendar Feed</h3>
+                <p>Subscribe to reservations for this property:</p>
+                <a href="@Model.PropertyIcalUrl"><code>@Model.PropertyIcalUrl</code></a>
+            </div>
+        }
     </div>
 
     <div x-show="tab === 'photos'" class="tab-panel">

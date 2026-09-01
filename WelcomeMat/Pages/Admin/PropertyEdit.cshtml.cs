@@ -51,6 +51,7 @@ public class PropertyEditModel : PageModel
     public List<string> Photos { get; private set; } = [];
     public bool HasThumbnail { get; private set; }
     public long ThumbVersion { get; private set; }
+    public string PropertyIcalUrl { get; private set; } = "";
     public int GlobalMaxConsecutiveNights { get; private set; }
     public int GlobalMinAdvanceNoticeDays { get; private set; }
     public int GlobalMaxAdvanceBookingDays { get; private set; }
@@ -88,6 +89,9 @@ public class PropertyEditModel : PageModel
 
 
 
+        this.PropertyIcalUrl = this.PublicUrls.BuildWebcal(
+            $"/ical/{this.Property.IcalToken}",
+            this.Request.Host);
         this.FavoriteSpots = this.Db.FavoriteSpots
             .Where(f => f.PropertyId == id)
             .OrderBy(f => f.SortOrder)

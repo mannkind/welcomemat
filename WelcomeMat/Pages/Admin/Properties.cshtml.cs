@@ -94,6 +94,24 @@ public class PropertiesModel : PageModel
 
 
     /// <summary>
+    /// Mint a new feed token, retiring any URL already handed out.
+    /// </summary>
+    /// <param name="id"></param>
+    /// <returns></returns>
+    public IActionResult OnPostRotateIcal(Guid id)
+    {
+        var prop = this.Db.Properties.Find(id);
+        if (prop is null)
+        {
+            return this.NotFound();
+        }
+
+        prop.IcalToken = IcalService.NewToken();
+        prop.UpdatedAt = DateTime.UtcNow;
+        this.Db.SaveChanges();
+        return AjaxResults.OkOrFallback(this.HttpContext, this.RedirectToPage());
+    }
+    /// <summary>
     /// Delete a property and its photos.
     /// </summary>
     /// <param name="id"></param>
