@@ -9,7 +9,7 @@ namespace WelcomeMat.E2E;
 public class ReservationsTests : TestBase
 {
     [Test]
-    public async Task Lists_seeded_reservation()
+    public async Task Lists_seeded_reservation_and_ical_url()
     {
         await this.LoginAsGuest();
         await this.Page.GotoAsync("/reservations");
@@ -20,6 +20,7 @@ public class ReservationsTests : TestBase
         await this.Expect(row).ToContainTextAsync(this.Seed.BeachName);
         await this.Expect(row).ToContainTextAsync(checkIn.ToString("MMM d"));
 
+        await this.Expect(this.Page.Locator(".ical-subscription")).ToContainTextAsync($"/ical/{this.Seed.GuestCalToken}");
     }
 
     [Test]

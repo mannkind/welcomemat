@@ -36,6 +36,7 @@ public class ReservationsModel : PageModel
 
     public List<Reservation> MyReservations { get; private set; } = [];
     public Dictionary<Guid, GuestbookEntry> GuestbookEntries { get; private set; } = [];
+    public string IcalUrl { get; private set; } = "";
     public bool IsAdmin { get; private set; }
 
     /// <summary>
@@ -65,12 +66,38 @@ public class ReservationsModel : PageModel
             .Where(e => reservationIds.Contains(e.ReservationId))
             .ToDictionaryAsync(e => e.ReservationId, ct);
 
+        var user = await this.Db.Users.FindAsync([userId], ct);
+        if (!string.IsNullOrEmpty(user?.CalendarToken))
+        {
+            this.IcalUrl = this.PublicUrls.BuildWebcal(
+                $"/ical/{user.CalendarToken}",
+                this.Request.Host);
+        }
 
         this.ViewData["SiteTitle"] = this.Db.Settings.FirstOrDefault(s => s.Key == "site_title")?.Value ?? "WelcomeMat";
         this.ViewData["CurrentPage"] = "reservations";
         this.ViewData["Title"] = "My Reservations";
     }
 
+    /// <summary>
+    /// Mint a new personal feed token, retiring any URL already handed out.
+    /// </summary>
+    /// <param name="ct"></param>
+    /// <returns></returns>
+    public async Task<IActionResult> OnPostRotateIcalAsync(CancellationToken ct = default)
+    {
+        var userId = Guid.Parse(this.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? Guid.Empty.ToString());
+        var user = await this.Db.Users.FindAsync([userId], ct);
+        if (user is null)
+        {
+            return this.NotFound();
+        }
+
+        user.CalendarToken = IcalService.NewToken();
+        user.UpdatedAt = DateTime.UtcNow;
+        await this.Db.SaveChangesAsync(ct);
+        return AjaxResults.OkOrFallback(this.HttpContext, this.RedirectToPage());
+    }
 
     /// <summary>
     /// Sign the guestbook for a stay.
