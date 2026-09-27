@@ -13,7 +13,7 @@
 </div>
 
 <div x-data="{
-    tab: ['details','photos','door-codes','favorite-places','walking-paths'].includes(window.location.hash.slice(1))
+    tab: ['details','photos','door-codes','favorite-places','walking-paths','guestbook'].includes(window.location.hash.slice(1))
          ? window.location.hash.slice(1)
          : 'details',
     setTab(name) {
@@ -27,6 +27,7 @@
         <button type="button" :class="{ active: tab === 'door-codes' }" @@click="setTab('door-codes')">Door Codes</button>
         <button type="button" :class="{ active: tab === 'favorite-places' }" @@click="setTab('favorite-places'); setTimeout(() => window._spotsMap && window._spotsMap.invalidateSize(), 50)">Favorite Places</button>
         <button type="button" :class="{ active: tab === 'walking-paths' }" @@click="setTab('walking-paths'); setTimeout(() => window._drawMap && window._drawMap.invalidateSize(), 50)">Walking Paths</button>
+        <button type="button" :class="{ active: tab === 'guestbook' }" @@click="setTab('guestbook')">Guestbook</button>
     </nav>
 
     <div x-show="tab === 'details'" class="tab-panel">
@@ -200,9 +201,6 @@
         </form>
     </div>
 
-
-
-
     <div x-show="tab === 'door-codes'" class="tab-panel">
         <h3>Guest Door Codes</h3>
         @if (!Model.Users.Any())
@@ -225,6 +223,7 @@
             </form>
         }
     </div>
+
     <div x-show="tab === 'favorite-places'" class="tab-panel">
         <div class="edit-section-columns">
             <h3>Favorite Places</h3>
@@ -274,6 +273,7 @@
             </div>
         </div>
     </div>
+
     <div x-show="tab === 'walking-paths'" class="tab-panel">
         <div class="edit-section-columns">
             <h3>Walking Paths</h3>
@@ -338,7 +338,30 @@
             </div>
         </div>
     </div>
+
+    <div x-show="tab === 'guestbook'" class="tab-panel">
+        <h3>Guestbook Entries</h3>
+        @if (Model.GuestbookEntries.Count == 0)
+        {
+            <p class="empty-state">No guestbook entries yet.</p>
+        }
+        else
+        {
+            <div class="guestbook-entries">
+                @foreach (var entry in Model.GuestbookEntries)
+                {
+                    <div class="guestbook-entry">
+                        <partial name="_GuestbookEntry" model="entry" />
+                        <form method="post" asp-page-handler="DeleteGuestbookEntry" asp-route-id="@prop.Id" style="margin-top:0.5rem">
+                            <input type="hidden" name="entryId" value="@entry.Id" />
+                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </form>
+                    </div>
+                }
+            </div>
+        }
+    </div>
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
-

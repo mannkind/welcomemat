@@ -48,6 +48,7 @@ public class PropertyEditModel : PageModel
     public List<WalkingPath> WalkingPaths { get; private set; } = [];
     public List<User> Users { get; private set; } = [];
     public List<GuestDoorCode> GuestDoorCodes { get; private set; } = [];
+    public List<GuestbookEntry> GuestbookEntries { get; private set; } = [];
     public List<string> Photos { get; private set; } = [];
     public bool HasThumbnail { get; private set; }
     public long ThumbVersion { get; private set; }
@@ -84,24 +85,30 @@ public class PropertyEditModel : PageModel
                 ?? StayTimesService.Defaults.CheckOut,
         };
 
-
-
-
-
-
         this.PropertyIcalUrl = this.PublicUrls.BuildWebcal(
             $"/ical/{this.Property.IcalToken}",
             this.Request.Host);
+
         this.FavoriteSpots = this.Db.FavoriteSpots
             .Where(f => f.PropertyId == id)
             .OrderBy(f => f.SortOrder)
             .ToList();
+
         this.WalkingPaths = this.Db.WalkingPaths
             .Where(w => w.PropertyId == id)
             .OrderBy(w => w.SortOrder)
             .ToList();
+
         this.Users = this.Db.Users.OrderBy(u => u.Name).ToList();
         this.GuestDoorCodes = this.Db.GuestDoorCodes.Where(g => g.PropertyId == id).ToList();
+
+        this.GuestbookEntries = this.Db.GuestbookEntries
+            .Include(e => e.User)
+            .Include(e => e.Reservation)
+            .Where(e => e.PropertyId == id)
+            .OrderByDescending(e => e.CreatedAt)
+            .ToList();
+
         var imageDir = Path.Combine(this.Options.Value.ImagesPath, id.ToString());
         this.Photos = this.Images.ListGalleryFilenames(id).Select(f => $"/images/{id}/{f}").ToList();
 
@@ -391,10 +398,6 @@ public class PropertyEditModel : PageModel
         return this.RedirectToPage(null, null, new { id }, "details");
     }
 
-
-
-
-
     /// <summary>
     /// Add a favorite spot, geocoding its address.
     /// </summary>
@@ -456,6 +459,7 @@ public class PropertyEditModel : PageModel
         }
         return this.RedirectToPage(null, null, new { id }, "favorite-places");
     }
+
     private record PathInput
     {
         public string Name { get; init; } = string.Empty;
@@ -634,6 +638,7 @@ public class PropertyEditModel : PageModel
         this.TempData["Flash"] = "Path removed.";
         return this.RedirectToPage(null, null, new { id }, "walking-paths");
     }
+
     /// <summary>
     /// Save the per-guest door codes.
     /// </summary>
@@ -665,6 +670,24 @@ public class PropertyEditModel : PageModel
         this.Db.SaveChanges();
         return this.RedirectToPage(null, null, new { id }, "door-codes");
     }
+
+    /// <summary>
+    /// Remove a guestbook entry.
+    /// </summary>
+    /// <param name="id"></param>
+    /// <param name="entryId"></param>
+    /// <returns></returns>
+    public IActionResult OnPostDeleteGuestbookEntry(Guid id, [FromForm] Guid entryId)
+    {
+        var entry = this.Db.GuestbookEntries.Find(entryId);
+        if (entry is not null)
+        {
+            this.Db.GuestbookEntries.Remove(entry);
+            this.Db.SaveChanges();
+        }
+        return this.RedirectToPage(null, null, new { id }, "guestbook");
+    }
+
     /// <summary>
     /// The database used internally.
     /// </summary>

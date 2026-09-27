@@ -92,7 +92,6 @@ public class PropertiesModel : PageModel
         return AjaxResults.RedirectOrFetch(this.HttpContext, editUrl, this.Redirect(editUrl));
     }
 
-
     /// <summary>
     /// Mint a new feed token, retiring any URL already handed out.
     /// </summary>
@@ -111,6 +110,7 @@ public class PropertiesModel : PageModel
         this.Db.SaveChanges();
         return AjaxResults.OkOrFallback(this.HttpContext, this.RedirectToPage());
     }
+
     /// <summary>
     /// Delete a property and its photos.
     /// </summary>

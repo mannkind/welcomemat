@@ -1,0 +1,10 @@
+@model WelcomeMat.Data.Entities.GuestbookEntry
+
+<div class="guestbook-entry-header">
+    <strong>@Model.User?.Name</strong>
+    <span class="text-muted">
+        @Model.Reservation?.CheckIn.ToString("MMM d") – @Model.Reservation?.CheckOut.ToString("MMM d, yyyy")
+    </span>
+</div>
+<p class="guestbook-entry-message">@Model.Message</p>
+<small class="text-muted">@((Model.UpdatedAt ?? Model.CreatedAt).ToString("MMM d, yyyy"))</small>

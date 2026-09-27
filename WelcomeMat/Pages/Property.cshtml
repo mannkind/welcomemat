@@ -1,0 +1,270 @@
+@page "{id:guid?}"
+@model WelcomeMat.Pages.PropertyModel
+@using System.Text.Json
+@using WelcomeMat.Services
+@{
+    var prop = Model.Property!;
+    var access = Model.Access;
+    var images = Model.GalleryImages
+        .Select(f => $"/images/{prop.Id}/{f}")
+        .ToList();
+    var hasMap = prop.Latitude.HasValue && prop.Longitude.HasValue;
+    var mapsUrl = $"https://maps.google.com/?q={Uri.EscapeDataString(prop.Address ?? prop.Name)}";
+}
+
+<div class="property-info" x-data="calendarApp()">
+
+
+    <h2>@prop.Name</h2>
+    @if (!string.IsNullOrEmpty(prop.Address))
+    {
+        <div class="address-meta">
+            @prop.Address
+            &nbsp;·&nbsp;
+            <a class="address-action" href="@mapsUrl" target="_blank" rel="noopener">Open in Maps ↗</a>
+            &nbsp;·&nbsp;
+            <button class="address-action copy-address-btn" type="button" data-address="@prop.Address">Copy</button>
+        </div>
+    }
+
+
+    @if (Model.NextReservation is { } stay)
+    {
+        var calUrl = $"/calendar/{prop.Id}";
+        <a class="stay-card" href="@calUrl">
+            <div class="stay-card-label">Your Stay</div>
+            <div class="stay-card-dates">
+                <div class="stay-card-date"><small>Check-in</small><strong>@stay.CheckIn.ToString("MMM d")</strong></div>
+                <div class="stay-card-date" style="color:var(--muted);align-self:center;font-size:1.2em">→</div>
+                <div class="stay-card-date"><small>Check-out</small><strong>@stay.CheckOut.ToString("MMM d")</strong></div>
+                <div class="stay-card-date"><small>Nights</small><strong>@((stay.CheckOut.DayNumber - stay.CheckIn.DayNumber))</strong></div>
+            </div>
+        </a>
+    }
+
+
+    @if (images.Count > 0)
+    {
+        <section class="journey-section">
+            <div class="journey-section-label">Photos</div>
+            <div class="gallery">
+                @foreach (var src in images)
+                {
+                    <img class="gallery-img" src="@src" alt="Property photo" loading="lazy" />
+                }
+            </div>
+        </section>
+    }
+
+
+    @{
+        var doorCode = access?.EffectiveDoorCode;
+        var checkinProcedures = Model.CheckinProcedures;
+        var showAccessNotice = access is null && Model.NextReservation is not null;
+        var hasGetIn = !string.IsNullOrEmpty(doorCode) || !string.IsNullOrEmpty(checkinProcedures)
+                       || !string.IsNullOrEmpty(prop.Information) || showAccessNotice;
+    }
+    @if (hasGetIn)
+    {
+        <section class="journey-section">
+            <div class="journey-section-label">Get In</div>
+
+            @if (showAccessNotice)
+            {
+                <div class="quick-card">
+                    <p class="empty-state">Your door code and Wi-Fi details will appear here starting 24 hours before check-in.</p>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(doorCode))
+            {
+                <div class="quick-card" x-data="{ shown: false }">
+                    <div class="quick-card-title">Door Code</div>
+                    <div class="quick-card-code">
+                        <span x-show="shown">@doorCode</span>
+                        <span x-show="!shown">••••</span>
+                    </div>
+                    <div class="quick-card-reveal">
+                        <button type="button" class="btn-reveal" x-on:click="shown = !shown" x-text="shown ? 'Hide' : 'Tap to reveal'"></button>
+                    </div>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(prop.Information))
+            {
+                <div class="quick-card">
+                    <div class="quick-card-title">General Information</div>
+                    <ul style="padding-left:1.25rem;margin-top:0.5rem;line-height:1.9">
+                        @foreach (var line in TextLines.Split(prop.Information))
+                        {
+                            <li>@line</li>
+                        }
+                    </ul>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(checkinProcedures))
+            {
+                <div class="quick-card">
+                    <div class="quick-card-title">Check-in Steps</div>
+                    <ol style="padding-left:1.25rem;margin-top:0.5rem;line-height:1.9">
+                        @foreach (var line in TextLines.Split(checkinProcedures))
+                        {
+                            <li>@line</li>
+                        }
+                    </ol>
+                </div>
+            }
+        </section>
+    }
+
+
+    @if (access is not null && !string.IsNullOrEmpty(access.WifiNetwork))
+    {
+        string EscapeWifi(string s) => s
+            .Replace("\\", "\\\\").Replace(";", "\\;").Replace(",", "\\,")
+            .Replace("\"", "\\\"").Replace(":", "\\:");
+        var wifiQr = $"WIFI:T:WPA;S:{EscapeWifi(access.WifiNetwork)};P:{EscapeWifi(access.WifiPassword ?? "")};;";
+
+        <section class="journey-section"
+                 x-data="{ shown: false, qrShown: false }"
+                 x-init="$watch('qrShown', v => { if (v) { $nextTick(() => { if (!$refs.qrcode.children.length && window.QRCode) new QRCode($refs.qrcode, { text: $refs.qrcode.dataset.wifi, width: 180, height: 180 }); }); } })">
+            <div class="journey-section-label">Stay Connected</div>
+            <div class="quick-card">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem">
+                    <div>
+                        <div class="quick-card-title">Network</div>
+                        <strong>@access.WifiNetwork</strong>
+                    </div>
+                    <div style="text-align:right">
+                        <div class="quick-card-title">Password</div>
+                        <span x-show="shown" style="font-weight:700">@access.WifiPassword</span>
+                        <span x-show="!shown">••••••••</span>
+                        <div style="margin-top:0.25rem">
+                            <button type="button" class="btn-reveal" x-on:click="shown = !shown" x-text="shown ? 'Hide' : 'Reveal'"></button>
+                        </div>
+                    </div>
+                </div>
+                <div style="border-top:1px solid var(--border);margin-top:0.75rem;padding-top:0.5rem;text-align:center">
+                    <button type="button" class="btn-reveal" x-on:click="qrShown = !qrShown" x-text="qrShown ? 'Hide QR Code' : 'Show QR Code'"></button>
+                </div>
+                <div x-show="qrShown" style="margin-top:0.75rem;display:flex;flex-direction:column;align-items:center;gap:0.4rem">
+                    <div x-ref="qrcode" data-wifi="@wifiQr" style="width:fit-content;margin:0 auto"></div>
+                    <p style="font-size:0.75rem;color:var(--muted);text-align:center">On iOS: use Camera app or tap &amp; hold → Join Network.</p>
+                </div>
+            </div>
+        </section>
+        <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"
+                integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous"></script>
+    }
+
+
+    @if (hasMap || Model.FavoriteSpots.Count > 0)
+    {
+        <section class="journey-section">
+            <div class="journey-section-label">Find Your Way</div>
+
+            @if (hasMap)
+            {
+                var mapData = JsonSerializer.Serialize(new
+                {
+                    property = new { lat = prop.Latitude!.Value, lng = prop.Longitude!.Value, name = prop.Name },
+                    spots = Model.FavoriteSpots
+                        .Where(s => s.Latitude.HasValue && s.Longitude.HasValue)
+                        .Select(s => new { lat = s.Latitude!.Value, lng = s.Longitude!.Value, name = s.Name, description = s.Description }),
+                    paths = Model.WalkingPaths.Select(w => new
+                    {
+                        name = w.Name, color = w.Color, weight = w.Weight, opacity = w.Opacity,
+                        coordinates = JsonSerializer.Deserialize<object>(w.Coordinates)
+                    })
+                });
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+                      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous" />
+                <div id="property-map" style="height:300px;border-radius:var(--radius);border:1px solid var(--border);" data-map="@mapData"></div>
+            }
+
+            @if (Model.FavoriteSpots.Count > 0)
+            {
+                <div class="spots-chips">
+                    @foreach (var spot in Model.FavoriteSpots)
+                    {
+                        var mappable = spot.Latitude.HasValue && spot.Longitude.HasValue;
+                        <button type="button"
+                                class="spot-chip @(mappable ? "spot-chip--mappable" : "")"
+                                @if (mappable)
+                                {
+                                    <text>
+                                    data-lat="@spot.Latitude!.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)"
+                                    data-lng="@spot.Longitude!.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)"
+                                    </text>
+                                }>
+                            <span class="spot-chip-name">@spot.Name</span>
+                            @if (!string.IsNullOrEmpty(spot.Description))
+                            {
+                                <span class="spot-chip-desc">@spot.Description</span>
+                            }
+                        </button>
+                    }
+                </div>
+            }
+        </section>
+
+        @if (hasMap)
+        {
+            <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+                    integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+        }
+    }
+
+
+    @{
+        var hasCheckout = !string.IsNullOrEmpty(prop.CheckoutProcedures);
+    }
+    @if (hasCheckout)
+    {
+        <section class="journey-section">
+            <div class="journey-section-label">Checking Out</div>
+
+            @if (!string.IsNullOrEmpty(prop.CheckoutProcedures))
+            {
+                <div class="quick-card">
+                    <div class="quick-card-title">Before You Leave</div>
+                    <ol style="padding-left:1.25rem;margin-top:0.5rem;line-height:1.9">
+                        @foreach (var line in TextLines.Split(prop.CheckoutProcedures))
+                        {
+                            <li>@line</li>
+                        }
+                    </ol>
+                </div>
+            }
+
+        </section>
+    }
+
+
+    <section class="journey-section">
+        <div class="journey-section-label">Guestbook</div>
+        @if (Model.GuestbookEntries.Count == 0)
+        {
+            <p class="empty-state">No entries yet.</p>
+        }
+        else
+        {
+            <div class="guestbook-entries">
+                @foreach (var entry in Model.GuestbookEntries)
+                {
+                    <div class="guestbook-entry">
+                        <partial name="_GuestbookEntry" model="entry" />
+                    </div>
+                }
+            </div>
+        }
+    </section>
+
+
+</div>
+
+<dialog id="lightbox-modal">
+    <button id="lightbox-close">&times;</button>
+    <img id="lightbox-img" src="" alt="" />
+</dialog>

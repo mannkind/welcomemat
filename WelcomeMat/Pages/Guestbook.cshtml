@@ -1,0 +1,23 @@
+@page
+@model WelcomeMat.Pages.GuestbookModel
+@{
+    ViewData["Title"] = $"Guestbook – {Model.Property?.Name}";
+}
+
+<h2>Guestbook – @Model.Property?.Name</h2>
+
+@if (Model.Entries.Count == 0)
+{
+    <p class="empty-state">No guestbook entries yet.</p>
+}
+else
+{
+    <div class="guestbook-entries">
+        @foreach (var entry in Model.Entries)
+        {
+            <div class="guestbook-entry">
+                <partial name="_GuestbookEntry" model="entry" />
+            </div>
+        }
+    </div>
+}
