@@ -1,0 +1,29 @@
+# Requires lefthook on PATH (mise use -g lefthook). `dotnet build` runs `lefthook install`.
+pre-commit:
+  jobs:
+    - name: format c#
+      glob: "*.cs"
+      run: >-
+        dotnet format whitespace WelcomeMat.slnx --include {staged_files} --verbosity quiet &&
+        dotnet format style WelcomeMat.slnx --include {staged_files} --verbosity quiet
+      stage_fixed: true
+
+    - name: format typescript
+      glob: "*.ts"
+      run: npx prettier --write {staged_files}
+      stage_fixed: true
+
+    # Typecheck the whole project: one file's edit can break another's types.
+    - name: typecheck typescript
+      glob: "*.ts"
+      run: npx tsc --noEmit
+
+pre-push:
+  jobs:
+    - name: build
+      run: dotnet build --configuration Debug --nologo --verbosity quiet
+    - name: unit tests
+      run: dotnet test WelcomeMat.Tests --configuration Debug --no-build --nologo
+    - name: e2e tests
+      tags: [e2e]
+      run: .lefthook/pre-push/e2e.sh

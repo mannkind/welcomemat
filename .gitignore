@@ -1,0 +1,34 @@
+WelcomeMat/state
+WelcomeMat/obj
+WelcomeMat/bin
+WelcomeMat.Tests/state
+WelcomeMat.Tests/obj
+WelcomeMat.Tests/bin
+WelcomeMat.E2E/state
+WelcomeMat.E2E/obj
+WelcomeMat.E2E/bin
+
+# Environment files: never commit real secrets. .env.example is the one exception; it ships
+# tracked, with placeholders only, documenting every supported variable.
+.env*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Mise
+mise.toml
+
+# Playwright
+.playwright-cli
+
+# Only tsc and prettier live here; package.json/package-lock.json are tracked.
+node_modules/
+
+# Compiled from WelcomeMat/Scripts/app.ts by tsc; never edit by hand.
+WelcomeMat/wwwroot/app.js

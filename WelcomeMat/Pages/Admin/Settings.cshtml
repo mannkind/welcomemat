@@ -1,0 +1,69 @@
+@page "/admin/settings"
+@model WelcomeMat.Pages.Admin.SettingsModel
+@{
+    ViewData["Title"] = "Settings";
+    string V(string key, string fallback = "") => Model.Values.GetValueOrDefault(key, fallback);
+}
+
+<h2>Settings</h2>
+
+<form method="post" class="settings-form" novalidate
+      x-data="{ msg: '', error: '' }"
+      x-on:submit.prevent="adminFetch($event.target).then(r => { msg = r.ok ? 'Settings saved.' : ''; error = r.ok ? '' : r.error; })">
+    <p x-show="error" x-text="error" class="modal-error"></p>
+    <p x-show="msg" x-text="msg" x-cloak class="flash"></p>
+
+    <h3>Site</h3>
+    <div class="form-group">
+        <label for="site_title">Site Title</label>
+        <input type="text" id="site_title" name="siteTitle" value="@V("site_title", "WelcomeMat")" placeholder="WelcomeMat" />
+    </div>
+
+    <h3>Stay Rules</h3>
+    <div class="form-group">
+        <label for="max_consecutive_nights">Max consecutive nights</label>
+        <input type="number" id="max_consecutive_nights" name="maxConsecutiveNights" min="1" value="@V("max_consecutive_nights", "7")" />
+    </div>
+    <div class="form-group">
+        <label for="min_advance_notice_days">Min advance notice (days)</label>
+        <input type="number" id="min_advance_notice_days" name="minAdvanceNoticeDays" min="0" value="@V("min_advance_notice_days", "1")" />
+    </div>
+    <div class="form-group">
+        <label for="max_advance_booking_days">Max advance booking (days)</label>
+        <input type="number" id="max_advance_booking_days" name="maxAdvanceBookingDays" min="1" value="@V("max_advance_booking_days", "90")" />
+    </div>
+    <div class="form-group">
+        <label for="access_window_days">Access window (days before check-in)</label>
+        <input type="number" id="access_window_days" name="accessWindowDays" min="0" value="@V("access_window_days", "7")" />
+        <p class="form-info">Door code and Wi-Fi become visible to a guest this many days before check-in.</p>
+    </div>
+    <div class="form-group">
+        <label for="check_in_time">Check-in time</label>
+        <input type="time" id="check_in_time" name="checkInTime" value="@V("check_in_time", "15:00")" required />
+    </div>
+    <div class="form-group">
+        <label for="check_out_time">Check-out time</label>
+        <input type="time" id="check_out_time" name="checkOutTime" value="@V("check_out_time", "11:00")" required />
+        <p class="form-info">
+            Nobody is checked in or out automatically at these times. They set when door codes
+            start and stop working, and the times shown in calendar feeds, so a same-day
+            turnover reads as one stay ending before the next begins. Check-out must not be
+            later than check-in. Individual properties can override both.
+        </p>
+    </div>
+
+    <button type="submit" class="btn">Save</button>
+</form>
+
+<h3>Admin Calendar Feed</h3>
+<div class="ical-subscription">
+    <p>Subscribe to a feed of every active reservation across every property:</p>
+    @if (!string.IsNullOrEmpty(Model.AdminIcalUrl))
+    {
+        <a href="@Model.AdminIcalUrl"><code>@Model.AdminIcalUrl</code></a>
+    }
+    <form method="post" asp-page-handler="RotateAdminIcal"
+          x-on:submit.prevent="confirm('Rotate the admin calendar link? The old URL will stop working.') && adminRowSubmit($event.target)">
+        <button type="submit" class="btn btn-secondary btn-sm">Rotate Link</button>
+    </form>
+</div>

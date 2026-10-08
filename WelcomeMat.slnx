@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="WelcomeMat/WelcomeMat.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="WelcomeMat.Tests/WelcomeMat.Tests.csproj" />
+    <Project Path="WelcomeMat.E2E/WelcomeMat.E2E.csproj" />
+  </Folder>
+</Solution>

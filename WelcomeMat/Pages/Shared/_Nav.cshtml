@@ -1,0 +1,73 @@
+@using System.Security.Claims
+@inject WelcomeMat.Data.AppDbContext Db
+@inject Microsoft.Extensions.Options.IOptions<WelcomeMat.Config.AppOptions> AppOpts
+
+@{
+    var isAuthenticated = User.Identity?.IsAuthenticated == true;
+    var isAdmin = User.HasClaim("is_admin", "true");
+    var userName = User.FindFirstValue(System.Security.Claims.ClaimTypes.Name) ?? "";
+    var impersonatorId = User.FindFirstValue("impersonator_id");
+    var impersonatorName = User.FindFirstValue("impersonator_name") ?? "";
+    var siteTitle = ViewData["SiteTitle"] as string ?? "WelcomeMat";
+    var currentPage = ViewData["CurrentPage"] as string ?? "";
+    var currentPropertyId = ViewData["CurrentPropertyId"] is Guid pid ? pid : (Guid?)null;
+
+    List<WelcomeMat.Data.Entities.Property> properties = [];
+    if (isAuthenticated)
+        properties = Db.Properties.Where(p => p.IsActive).OrderBy(p => p.Name).ToList();
+}
+
+@if (isAuthenticated)
+{
+    @if (!string.IsNullOrEmpty(impersonatorId))
+    {
+        <div class="impersonation-banner">
+            <span>
+                You are viewing the site as <strong>@userName</strong>@(string.IsNullOrEmpty(impersonatorName) ? "" : $" (as admin {impersonatorName})").
+            </span>
+            <form method="post" action="/impersonate/stop" asp-antiforgery="true">
+                <button type="submit" class="btn">Return to admin</button>
+            </form>
+        </div>
+    }
+    <nav>
+        <div class="nav-brand">
+            @siteTitle
+        </div>
+        <div class="nav-links">
+            @if (properties.Count > 1)
+            {
+                <a href="/property-list" class="@(currentPage == "properties" ? "active" : "")">Properties</a>
+            }
+            @if (properties.Count == 1 || currentPropertyId.HasValue)
+            {
+                <a href="@(currentPropertyId.HasValue ? $"/calendar/{currentPropertyId}" : "/calendar")"
+                   class="@(currentPage == "calendar" ? "active" : "")">Calendar</a>
+                <a href="@(currentPropertyId.HasValue ? $"/property/{currentPropertyId}" : "/property")"
+                   class="@(currentPage == "property" ? "active" : "")">Property Info</a>
+            }
+            <a href="/reservations" class="@(currentPage == "reservations" ? "active" : "")">My Reservations</a>
+
+            @if (isAdmin)
+            {
+                <details class="nav-dropdown">
+                    <summary class="nav-dropdown-trigger">Admin</summary>
+                    <div class="nav-dropdown-content">
+                        <a href="/admin/properties">Properties</a>
+                        <a href="/admin/users">Users</a>
+                        <a href="/admin/blackouts">Blackouts</a>
+                        <a href="/admin/settings">Settings</a>
+                    </div>
+                </details>
+            }
+
+            <span class="nav-user">@userName</span>
+
+            <button id="theme-toggle" class="btn-theme" title="Toggle dark mode">&#9790;</button>
+
+            <form method="post" asp-page="/Logout" class="nav-logout">
+                <button type="submit">Logout</button>
+            </form>
+        </div>
+    </nav>
+}

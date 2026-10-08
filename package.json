@@ -1,0 +1,16 @@
+{
+  "name": "welcomemat-client",
+  "private": true,
+  "description": "Client-side TypeScript for WelcomeMat, compiled to wwwroot/app.js.",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write \"WelcomeMat/Scripts/**/*.ts\"",
+    "format:check": "prettier --check \"WelcomeMat/Scripts/**/*.ts\""
+  },
+  "devDependencies": {
+    "@types/leaflet": "1.9.22",
+    "prettier": "3.9.6",
+    "typescript": "7.0.2"
+  }
+}

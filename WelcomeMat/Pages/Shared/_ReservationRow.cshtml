@@ -1,0 +1,40 @@
+@model WelcomeMat.Pages.Models.ReservationRowView
+@{
+    var r = Model.Reservation;
+    var checkIn = r.CheckIn.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+    var checkOut = r.CheckOut.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+}
+
+<div class="reservation-row">
+    <div class="reservation-date">
+        <span class="reservation-month">@r.CheckIn.ToString("MMM")</span>
+        <span class="reservation-day">@r.CheckIn.Day</span>
+    </div>
+    <div class="reservation-divider"></div>
+    <div class="reservation-details">
+        <div class="reservation-property">@r.Property?.Name</div>
+        <div class="reservation-meta">
+            Check-out: @r.CheckOut.ToString("MMM d")
+            @if (!string.IsNullOrEmpty(r.Notes))
+            {
+                <span>&nbsp;·&nbsp;@r.Notes</span>
+            }
+        </div>
+    </div>
+    <div class="reservation-actions">
+        @if (Model.ShowChangeAndCancel)
+        {
+            <a class="btn btn-secondary btn-sm"
+               href="@Model.EditUrl">Change Dates</a>
+            <button type="button" class="btn btn-danger btn-sm"
+                    x-on:click="cancelReservation('/reservations/@r.Id', 'Cancel reservation from @checkIn to @checkOut?')">Cancel</button>
+        }
+        @if (Model.CanGuestbook)
+        {
+            <button type="button" class="btn btn-secondary btn-sm"
+                    data-reservation-id="@r.Id"
+                    data-message="@Model.GuestbookMessage"
+                    x-on:click="openGuestbookModal($el.dataset.reservationId, $el.dataset.message)">@Model.GuestbookLabel</button>
+        }
+    </div>
+</div>

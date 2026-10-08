@@ -1,0 +1,39 @@
+<Project>
+
+  <!-- lefthook only writes .git/hooks on `lefthook install`, and that is per-clone,
+       so do it on build. Absent lefthook warns and the build carries on. -->
+  <Target Name="InstallGitHooks"
+          BeforeTargets="Build"
+          Condition="Exists('$(MSBuildThisFileDirectory).git') AND '$(InstallGitHooks)' != 'false'"
+          Inputs="$(MSBuildThisFileDirectory)lefthook.yml"
+          Outputs="$(BaseIntermediateOutputPath)lefthook.stamp">
+    <Exec Command="lefthook install"
+          WorkingDirectory="$(MSBuildThisFileDirectory)"
+          ContinueOnError="true"
+          StandardOutputImportance="low"
+          StandardErrorImportance="low">
+      <Output TaskParameter="ExitCode" PropertyName="LefthookExitCode" />
+    </Exec>
+    <Warning Condition="'$(LefthookExitCode)' != '0'"
+             Text="lefthook not found; git hooks are not installed. Run: mise use -g lefthook" />
+    <MakeDir Directories="$(BaseIntermediateOutputPath)" />
+    <Touch Files="$(BaseIntermediateOutputPath)lefthook.stamp" AlwaysCreate="true" />
+  </Target>
+
+  <!-- app.js is generated from app.ts, so build it before content is gathered.
+       Docker does it in a node stage instead; the SDK image has no node. -->
+  <Target Name="BuildClientScripts"
+          BeforeTargets="BeforeBuild"
+          Condition="'$(MSBuildProjectName)' == 'WelcomeMat' AND '$(SkipClientBuild)' != 'true'"
+          Inputs="$(MSBuildThisFileDirectory)WelcomeMat/Scripts/app.ts;$(MSBuildThisFileDirectory)tsconfig.json"
+          Outputs="$(MSBuildThisFileDirectory)WelcomeMat/wwwroot/app.js">
+    <Exec Command="npm ci --no-audit --no-fund"
+          WorkingDirectory="$(MSBuildThisFileDirectory)"
+          Condition="!Exists('$(MSBuildThisFileDirectory)node_modules')"
+          StandardOutputImportance="low" />
+    <Exec Command="npx tsc"
+          WorkingDirectory="$(MSBuildThisFileDirectory)"
+          StandardOutputImportance="low" />
+  </Target>
+
+</Project>
